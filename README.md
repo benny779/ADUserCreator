@@ -11,3 +11,5 @@ Functionality:
 * Removes unnecessary spaces and updates uppercase / lowercase letters
 
 When entering the data you can see the command to be executed (PowerShell)
+
+![alt text](https://github.com/benny779/ADUserCreator/blob/main/examle.png?raw=true)
