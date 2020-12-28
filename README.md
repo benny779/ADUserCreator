@@ -9,7 +9,11 @@ Functionality:
 * Checks if the username is available
 * Checks if the password is complex (inaccurate)
 * Removes unnecessary spaces and updates uppercase / lowercase letters
+* After creation, verifies all the details:
+    a. User successfully created
+    b. User information updated
+    c. Found in all selected groups
 
 When entering the data you can see the command to be executed (PowerShell)
 
-![alt text](https://github.com/benny779/ADUserCreator/blob/main/examle2.png?raw=true)
+![alt text](https://github.com/benny779/ADUserCreator/blob/main/example.png?raw=true)
