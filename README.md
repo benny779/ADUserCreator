@@ -10,9 +10,9 @@ Functionality:
 * Checks if the password is complex (inaccurate)
 * Removes unnecessary spaces and updates uppercase / lowercase letters
 * After creation, verifies all the details:
-    a. User successfully created
-    b. User information updated
-    c. Found in all selected groups
+    - User successfully created
+    - User information updated
+    - Found in all selected groups
 
 When entering the data you can see the command to be executed (PowerShell)
 
