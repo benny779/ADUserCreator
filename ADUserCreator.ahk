@@ -1,12 +1,32 @@
-﻿#SingleInstance force
+#SingleInstance force
 #NoEnv
 
 domain := "domain.com" ;Specifies UserPrincipalName
-groupList := "|test1|test2"
-departmentList := "|Administration|Marketing|Sales"
-;Get-ADUser -Filter '*' -Property department | select department | sort-object department -unique
+
 
 ini := A_ScriptDir "\ini.ini"
+IfNotExist, % ini
+{ ;create ini template
+	IniWrite, Example, % ini, departmentList
+	IniWrite, =, % ini, ouList
+	Sleep 100 ;To be sure the blank line will be first
+	IniWrite, OU=Example`,DC=domain`,DC=com, % ini, ouList, Example
+	IniWrite, Example, % ini, groupList, 1
+}
+
+;Get department list from ini
+;Get-ADUser -Filter '*' -Property department | select department | sort-object department -unique
+IniRead, departmentListFromIni, % ini, departmentList
+Loop, Parse, departmentListFromIni, `n
+	departmentList .= StrSplit(A_LoopField,"=")[1] "|"
+if !departmentList
+{
+	MsgBox, 16, , % "Error getting department list.`nPlease check the ini file."
+	ExitApp
+}
+
+;Get OU list from ini
+;Get-ADOrganizationalUnit -Filter '*' -SearchBase 'ou=IT,dc=domain,dc=com' | Sort-Object -Property Name,DistinguishedName | Format-Table Name,DistinguishedName -A
 IniRead, ouListFromIni, % ini, ouList
 Loop, Parse, ouListFromIni, `n
 	ouList .= StrSplit(A_LoopField,"=")[1] "|"
@@ -15,8 +35,19 @@ if !ouList
 	MsgBox, 16, , % "Error getting OU list.`nPlease check the ini file."
 	ExitApp
 }
-;Get-ADOrganizationalUnit -Filter '*' -SearchBase 'ou=IT,dc=domain,dc=com' | Sort-Object -Property Name,DistinguishedName | Format-Table Name,DistinguishedName -A
 
+;Get group list from ini
+IniRead, groupListFromIni, % ini, groupList
+Loop, Parse, groupListFromIni, `n
+{
+	totalGroups++
+	group%A_Index%name := StrSplit(A_LoopField,"=")[2]
+	group%A_Index%state := false
+}
+
+
+
+;Create GUI
 
 editBoxes := "firstNameEng|lastNameEng|firstNameHeb|lastNameHeb|displayName|commandBox|phone|logonName|password"
 ddlAndCombo := "department|group|ouPath"
@@ -53,27 +84,27 @@ Gui, Add, Text, xp+15 yp+25 Section, Display Name (final)
 Gui, Add, Edit, y+10 w420 vdisplayName gUpdateCommand hwndhDisplayName
 
 ;Command Box
-Gui, Font, s10 norm, Arial
-Gui, Add, GroupBox, xm y+28 w450 h257 Section, Command
-Gui, Add, Edit, xp+15 yp+25 w420 r13 ReadOnly vcommandBox
+Gui, Font, s9 norm, Arial
+Gui, Add, GroupBox, xm y+28 w450 h219 Section, Command
+Gui, Add, Edit, xp+15 yp+30 w420 r11 ReadOnly vcommandBox
 
-;Right
+;Details
 Gui, Font, s10 norm, Arial
-Gui, Add, GroupBox, x+30 ym w230 h458 Section, Details
+Gui, Add, GroupBox, x+30 ym w230 h245 Section, Details
 Gui, Font, s12 bold
 Gui, Add, Text, xp+15 yp+25, ★ Department
 Gui, Add, ComboBox, y+10 w200 vdepartment gUpdateCommand, % departmentList
-Gui, Add, Text, y+15, AD Group
-Gui, Add, DDL, y+10 w200 vgroup gUpdateCommand, % groupList
 Gui, Add, Text, y+15, ★ OU path
 Gui, Add, DDL, y+10 w200 vouPath gUpdateCommand, % ouList
 Gui, Add, Text, y+15, Phone
-Gui, Add, Edit, y+10 w200 vphone gUpdateCommand
+Gui, Add, Edit, y+10 w200 vphone gUpdateCommand number
 
 ;Logon name
-Gui, Add, Text, y+10 w200 h2 0x7 ;Vertical Line
-Gui, Add, Text, y+8, ★ Logon Name
-Gui, Add, Edit, y+10 w200 vlogonName gUpdateCommand
+Gui, Font, s10 norm, Arial
+Gui, Add, GroupBox, xs y+28 w230 h175, Logon
+Gui, Font, s12 bold
+Gui, Add, Text, xp+15 yp+25, ★ Logon Name
+Gui, Add, Edit, y+10 w200 vlogonName gUpdateCommand 0x10
 Gui, Add, Text, y+15, Password
 Gui, Add, Edit, y+10 w200 vpassword gUpdateCommand
 
@@ -82,6 +113,20 @@ Gui, Font, s12 bold
 Gui, Add, GroupBox, xs y+28 w230 h115, Finish
 Gui, Font, s15 bold
 Gui, Add, Button, xp+15 yp+25 w200 h75 vcreateButton gCreate Disabled, Create user
+
+;AD-Groups ListBox
+if groupListFromIni
+{
+	Gui, Font, s10 norm, Arial
+	Gui, Add, GroupBox, x+30 ym w250 h546 Section, AD-Groups
+	Gui, Font, s12 bold
+	Gui, Add, ListView, xp+15 yp+33 w220 h496 +LV0x14000 -Hdr Checked Grid AltSubmit -Multi vGroupLV gUpdateCommand, Group
+	LV_ModifyCol(1, 199) ;to prevent hScroll
+	Loop, % totalGroups
+		LV_Add(group%A_Index%state, group%A_Index%name)
+	;~ Gui, Font, s10 bold
+	;~ Gui, Add, Button, xs-100 y4 h22 w80, Groups >>
+}
 
 ;Status Bar
 Gui, Font, s10 norm
@@ -92,13 +137,16 @@ OnMessage( WM_CTLCOLOREDIT, "WM_CTLCOLOR" )
 WM_COMMAND := 0x111
 OnMessage( WM_COMMAND, "WM_CTRLFUCUS" )
 
-Gui, Show
+Gui, Show,, % "ADUserCreator - " domain " - " A_UserName
 return
+;~ Esc::ExitApp
+
 
 
 UpdateCommand:
 Gui, Submit, NoHide
 gosub, UpdateGui
+gosub, UpdateGroupList
 
 ;Clean vars
 creatADUserCommand := firstNameEngCommand := lastNameEngCommand := departmentCommand := ouPathCommand := phoneCommand := logonNameCommand := nameCommand := displayNameEngCommand := updateADUserDetailsCommand := firstNameHebCommand := lastNameHebCommand := groupCommand := ""
@@ -138,12 +186,12 @@ if logonName
 	if lastNameHeb
 		lastNameHebCommand := "-Surname """ lastNameHeb """ "
 	if displayName && (displayName != lastNameEng " " firstNameEng)
-		updateADUserDetailsCommand := "Set-ADUser -Identity """ logonName """ -DisplayName """ displayName """ " . firstNameHebCommand . lastNameHebCommand "`n`n"
+		updateADUserDetailsCommand := "Set-ADUserrrr -Identity """ logonName """ -DisplayName """ displayName """ " . firstNameHebCommand . lastNameHebCommand "`n`n"
 }
 
 ;Add-ADGroupMember command
-if logonName && group
-	groupCommand := "Add-ADGroupMember -Identity """ group """ -Members """ logonName """"
+if logonName && groupListCommand
+	groupCommand := groupListCommand
 
 
 finalCommand := creatADUserCommand . updateADUserDetailsCommand . groupCommand
@@ -160,7 +208,6 @@ UpdateGui:
 ;Uppercase / lowercase letters
 Loop, Parse, editBoxesUpperCase, "|"
 	%A_LoopField% := str(%A_LoopField%)
-logonName := str(logonName,0)
 
 if A_GuiControl in firstNameEng,lastNameEng,firstNameHeb,lastNameHeb
 {
@@ -178,69 +225,134 @@ if A_GuiControl in firstNameEng,lastNameEng,firstNameHeb,lastNameHeb
 }
 return
 
+UpdateGroupList:
+;Get selected groups
+selectedGroupList := ""
+while(i := LV_GetNext(i, "C")) ;Checked
+{
+	LV_GetText(selectedGroup, i)
+	selectedGroupList .= (selectedGroupList?"|":"") selectedGroup
+}
+
+groupListCommand := ""
+Loop, Parse, selectedGroupList, |
+	groupListCommand .= "Add-ADGroupMember -Identity """ A_LoopField """ -Members """ logonName """`n"
+return
+
 
 Create:
 GuiControl, Disable, createButton
 Gui, Submit, NoHide
 
-if ADUserExiat(logonName)
+if ADUserExist(logonName)
 {
-	;~ MsgBox, 16, , % "'" logonName "' already exists."
-	SB_SetText("'" logonName "' already exists.")
-	GuiControl, +BackgroundRed, StatusBar
+	MsgBox, 16, , % "'" logonName "' already exists."
 	GuiControl, Focus, logonName
 	return
 }
 if InStr(logonName, A_Space) || RegExMatch(logonName, "[^a-zA-Z0-9\s]")
 {
-	;~ MsgBox, 16, , % "Invalid username."
-	SB_SetText("Invalid username.")
-	GuiControl, +BackgroundRed, StatusBar
+	MsgBox, 16, , % "Invalid username."
 	GuiControl, Focus, logonName
 	return
 }
 password := (password?password:"Aa123456")
 if !Password_Complexity(password)
 {
-	;~ MsgBox, 16, , % "Password does not meet complexity requirements."
-	SB_SetText("Password does not meet complexity requirements.")
-	GuiControl, +BackgroundRed, StatusBar
+	MsgBox, 16, , % "Password does not meet complexity requirements."
 	GuiControl, Focus, password
 	return
 }
 
-SB_SetText("Creating...")
-GuiControl, -Background, StatusBar
+SB_SetText("Start creating user...")
+Sleep 100
 
-powershellFilePath := temp "\CreateADUserTempFile.ps1"
+SB_SetText("Deletes files...")
+powershellFilePath := A_Temp "\CreateADUserTempFile.ps1"
+powershellLogFilePath := A_Temp "\CreateADUserLogFile.log"
 IfExist, % powershellFilePath
 	FileDelete, % powershellFilePath
+IfExist, % powershellLogFilePath
+	FileDelete, powershellLogFilePath
 Sleep 50
-FileAppend, % finalCommand, % powershellFilePath, UTF-8
+
+SB_SetText("Creates files...")
+powershellCommand := "&{`n" finalCommand "`n} *> " powershellLogFilePath
+FileAppend, % powershellCommand, % powershellFilePath, UTF-8
+
+SB_SetText("Running command...")
 RunWait, PowerShell.exe -ExecutionPolicy Bypass -Command %powershellFilePath%,, Hide
 Sleep 50
+
+SB_SetText("Deletes files...")
 FileDelete, % powershellFilePath
 
-if ADUserExiat(logonName)
+SB_SetText("Verifying data...")
+adUserDetails := ""
+adUserDetails := ADUserExist(logonName)
+
+if !adUserDetails
 {
-	;~ MsgBox, 64, , User created successfully.
-	SB_SetText("User '" logonName "' was successfully created.")
-	GuiControl, +BackgroundGreen, StatusBar
-	Loop, Parse, editBoxes, |
-		GuiControl,, % A_LoopField
-	Loop, Parse, ddlAndCombo, |
-		GuiControl, Choose, % A_LoopField, 0
+	errMsgStr := "Error creating user."
+	gosub, MsgBoxError
+	return
 }
-else
+
+if updateADUserDetailsCommand
 {
-	;~ MsgBox, 16, , % "Error creating user."
-	SB_SetText("Error creating user.")
-	GuiControl, +BackgroundRed, StatusBar
+	if ( (firstNameHeb) && (firstNameHeb != adUserDetails.givenName) ) || ( (lastNameHeb) && (lastNameHeb != adUserDetails.sn) ) || ( ((displayName) && (displayName != lastNameEng " " firstNameEng)) && (displayName != adUserDetails.DisplayName) )
+	{
+		errMsgStr := "User created successfully but there was a problem updating user information."
+		gosub, MsgBoxError
+		return
+	}
 }
+
+if selectedGroupList
+{
+	;Insert the group names into a new array - for future development
+	adUserGroupNames := []
+	for i, v in adUserDetails.memberOf
+		adUserGroupNames.Push( SubStr( StrSplit(i,",")[1] , 4) )
+	
+	;Convert the group names to a string
+	for i, v in adUserGroupNames
+		adUserGroupNamesStr .= "|" v "|"
+	
+	;Check if the user is a member of the selected groups
+	Loop, Parse, selectedGroupList, |
+	{
+		if !InStr(adUserGroupNamesStr, "|" A_LoopField "|")
+		{
+			errMsgStr := "User created successfully but failed to add it to group."
+			gosub, MsgBoxError
+			return
+		}
+	}
+}
+
+
+
+SB_SetText("User '" logonName "' was successfully created.")
+
+Loop, Parse, editBoxes, |
+	GuiControl,, % A_LoopField
+Loop, Parse, ddlAndCombo, |
+	GuiControl, Choose, % A_LoopField, 0
+LV_Modify("","-Check")
+return
+
+
+MsgBoxError:
+MsgBox, 8212, ADUserCreator, % errMsgStr "`nDo you want to view the log file?"
+IfMsgBox, Yes
+	Run, % powershellLogFilePath
 return
 
 GuiClose:
 ExitApp
+
+
 
 
 WM_CTLCOLOR( wParam, lParam, msg, hwnd ) 
@@ -278,8 +390,10 @@ WM_CTRLFUCUS(wParam,lParam,msg,hwnd)
 	}
 }
 
-ADUserExiat(_Item)
+ADUserExist(_Item)
 {
+	Enabled := ComObjError() , ComObjError(0)
+	
 	objRootDSE := ComObjGet("LDAP://rootDSE")
 	strDomain := objRootDSE.Get("defaultNamingContext")
 	strADPath := "LDAP://" . strDomain
@@ -288,19 +402,47 @@ ADUserExiat(_Item)
 	objConnection.Open("Provider=ADsDSOObject")
 	objCommand := ComObjCreate("ADODB.Command")
 	objCommand.ActiveConnection := objConnection
-
-	objCommand.CommandText := "<" . strADPath . ">;(|(sAMAccountName=" . _Item . "));Name;subtree"
 	
+	objCommand.CommandText := "<" . strADPath . ">;(|(sAMAccountName=" . _Item . "));distinguishedName;subtree"
+	;~ objCommand.CommandText := "SELECT * FROM 'LDAP://" strDomain "' WHERE sAMAccountName='" _Item "'"
 	objRecordSet := objCommand.Execute
 	objRecordCount := objRecordSet.RecordCount
+
+	While !objRecordSet.EOF
+	{
+		FullDNUserName := objRecordSet.Fields.Item("distinguishedName").value
+		objRecordSet.MoveNext
+	}
 	
-	objConnection.Close
+	if objRecordCount
+	{
+		objUser := ComObjGet("LDAP://" FullDNUserName)
+		objUserDetails := {}
+		objUserDetails.distinguishedName 	:= objUser.Get("distinguishedName")
+		objUserDetails.Name					:= objUser.Get("Name") ;Name at creation
+		objUserDetails.givenName 			:= objUser.Get("givenName")
+		objUserDetails.sn 					:= objUser.Get("sn")   
+		objUserDetails.DisplayName 			:= objUser.Get("DisplayName")
+		objUserDetails.Description 			:= objUser.Get("Description")
+		objUserDetails.TelephoneNumber 		:= objUser.Get("TelephoneNumber")
+		objUserDetails.Department 			:= objUser.Get("Department")
+		objUserDetails.Mail 				:= objUser.Get("Mail")
+		objUserDetails.scriptPath 			:= objUser.Get("scriptPath")
+		objUserDetails.memberOf				:= objUser.Get("memberOf") ;return array
+	}
+	else
+	{
+		objUserDetails := false
+	}
+	
 	objRelease(objRootDSE)
 	objRelease(objDomain)
 	objRelease(objConnection)
 	objRelease(objCommand)
-
-	return objRecordCount
+	
+	ComObjError(Enabled)
+	
+	return objUserDetails
 }
 
 Password_Complexity(var) {
