@@ -14,6 +14,16 @@ Functionality:
     - User information updated
     - Found in all selected groups
 
-When entering the data you can see the command to be executed (PowerShell)
+In the "Command" panel you can see the command to be executed (PowerShell)
+
+
+Planned:
+* Option to add additional user information
+* Save templates
+* Copy details from an existing user
+
+
+AutoHotkey Download Page:
+https://autohotkey.com/download/
 
 ![alt text](https://github.com/benny779/ADUserCreator/blob/main/example.png?raw=true)
