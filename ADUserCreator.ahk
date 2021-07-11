@@ -119,9 +119,10 @@ if groupListFromIni
 {
 	Gui, Font, s10 norm, Arial
 	Gui, Add, GroupBox, x+30 ym w250 h546 Section, AD-Groups
+	Gui, Add, Checkbox, xp+160 yp+15 vallGroupSelect gUpdateCommand, Select all
 	Gui, Font, s12 bold
-	Gui, Add, ListView, xp+15 yp+33 w220 h496 +LV0x14000 -Hdr Checked Grid AltSubmit -Multi vGroupLV gUpdateCommand, Group
-	LV_ModifyCol(1, 199) ;to prevent hScroll
+	Gui, Add, ListView, xs+15 ys+33 w220 h496 +LV0x14000 -Hdr Checked Grid AltSubmit -Multi vGroupLV gUpdateCommand, Group
+		LV_ModifyCol(1, 199) ;to prevent hScroll
 	Loop, % totalGroups
 		LV_Add(group%A_Index%state, group%A_Index%name)
 	;~ Gui, Font, s10 bold
@@ -226,6 +227,15 @@ if A_GuiControl in firstNameEng,lastNameEng,firstNameHeb,lastNameHeb
 return
 
 UpdateGroupList:
+if (A_GuiControl = "allGroupSelect")
+{
+	GuiControlGet, allGroupSelected,, allGroupSelect
+	if (allGroupSelected = 1)
+		LV_Modify("","Check")
+	else
+		LV_Modify("","-Check")
+}
+
 ;Get selected groups
 selectedGroupList := ""
 while(i := LV_GetNext(i, "C")) ;Checked
