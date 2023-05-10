@@ -27,3 +27,7 @@ AutoHotkey Download Page:
 https://autohotkey.com/download/
 
 ![alt text](https://github.com/benny779/ADUserCreator/blob/main/example.png?raw=true)
+
+
+---
+**Note:** This repository is no longer actively maintained and will be archived. Feel free to fork the code and use it as a starting point for your own project.
